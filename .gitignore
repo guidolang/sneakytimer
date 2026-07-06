@@ -1,0 +1,19 @@
+# Xcode
+DerivedData/
+build/
+*.xcuserstate
+xcuserdata/
+*.xcworkspace/
+
+# Local build overrides
+Config/Local*.xcconfig
+
+# macOS
+.DS_Store
+
+# Additional documentation assets are kept local unless referenced by README.
+docs/*
+!docs/sneakytimer-screenshot.png
+
+# Swift Package Manager
+.build/

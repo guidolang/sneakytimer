@@ -1,0 +1,5 @@
+SNEAKY_TIMER_DEVELOPMENT_TEAM =
+SNEAKY_TIMER_BUNDLE_IDENTIFIER = com.guidolang.sneakytimer
+SNEAKY_TIMER_TEST_BUNDLE_IDENTIFIER = com.guidolang.sneakytimer.tests
+
+#include? "LocalSigning.xcconfig"
