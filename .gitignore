@@ -14,6 +14,7 @@ Config/Local*.xcconfig
 # Additional documentation assets are kept local unless referenced by README.
 docs/*
 !docs/sneakytimer-screenshot.png
+!docs/sneakytimer-demo.gif
 
 # Swift Package Manager
 .build/

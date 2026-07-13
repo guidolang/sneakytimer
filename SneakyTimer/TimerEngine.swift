@@ -64,15 +64,16 @@ struct TimerEngine: Equatable {
         completionAlreadyReported = false
     }
 
-    mutating func setPaused(duration: TimeInterval) {
+    mutating func setPaused(duration: TimeInterval, initialProgress: Double = 1) {
         let sanitizedDuration = max(0, duration)
+        let sanitizedProgress = clamp(initialProgress, lower: 0, upper: 1)
         configuredDuration = sanitizedDuration
         lastEnteredDuration = sanitizedDuration
         state = sanitizedDuration > 0 ? .paused : .idle
         anchorTime = nil
         anchorRemaining = sanitizedDuration
         anchorStealthRemaining = sanitizedDuration
-        anchorVisualProgress = sanitizedDuration > 0 ? 1 : 0
+        anchorVisualProgress = sanitizedDuration > 0 ? sanitizedProgress : 0
         completionAlreadyReported = false
     }
 

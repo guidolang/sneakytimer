@@ -3,7 +3,7 @@
 SneakyTimer is a visual timer for parents. Parents can adjust time discreetly while the timer keeps moving smoothly. Settings let parents customize how adjusted time is displayed and how much each tap changes.
 
 <p align="center">
-  <img src="docs/sneakytimer-screenshot.png" alt="SneakyTimer screenshot" width="320">
+  <img src="docs/sneakytimer-demo.gif" alt="SneakyTimer app demonstration" width="320">
 </p>
 
 ## Install On Your iPhone
