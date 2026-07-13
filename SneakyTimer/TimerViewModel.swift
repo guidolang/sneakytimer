@@ -156,6 +156,17 @@ final class TimerViewModel: ObservableObject {
         shouldStartNewRunOnPlay = true
     }
 
+    func resetToCurrentSettings() {
+        engine.setPaused(
+            duration: snapshot.lastEnteredDuration,
+            initialProgress: Double(initialTimerPosition) / 100
+        )
+        shouldStartNewRunOnPlay = true
+        endActualRemainingReveal()
+        refresh(at: nowProvider())
+        updateCompletionAlert()
+    }
+
     func handleTimeDisplayPress() {
         guard hidesAdjustedTime else { return }
         isTimeDisplayPressed = true

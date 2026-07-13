@@ -26,6 +26,10 @@ struct TimerView: View {
                             },
                             onShowPositionEditor: {
                                 isShowingPositionEditor = true
+                            },
+                            onResetTimer: {
+                                viewModel.resetToCurrentSettings()
+                                navigationPath.removeAll()
                             }
                         )
                     }
@@ -228,6 +232,7 @@ private struct SettingsView: View {
     let onShowInitialDurationEditor: () -> Void
     let onShowAdjustmentEditor: () -> Void
     let onShowPositionEditor: () -> Void
+    let onResetTimer: () -> Void
 
     var body: some View {
         Form {
@@ -263,6 +268,10 @@ private struct SettingsView: View {
                 .accessibilityValue(viewModel.adjustmentDisplayText)
 
                 Toggle("Hide adjusted time", isOn: $viewModel.hidesAdjustedTime)
+            }
+
+            Section {
+                Button("Reset timer", role: .destructive, action: onResetTimer)
             }
         }
         .navigationTitle("Settings")
