@@ -153,7 +153,7 @@ final class TimerViewModel: ObservableObject {
         guard (1...100).contains(position) else { return }
         initialTimerPosition = position
         defaults.set(position, forKey: Self.initialTimerPositionKey)
-        shouldStartNewRunOnPlay = true
+        resetToCurrentSettings()
     }
 
     func resetToCurrentSettings() {

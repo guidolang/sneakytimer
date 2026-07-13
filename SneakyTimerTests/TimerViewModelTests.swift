@@ -163,7 +163,7 @@ final class TimerViewModelTests: XCTestCase {
     }
 
     @MainActor
-    func testSavingInitialPositionDoesNotMutateRunningTimerUntilNextPlay() {
+    func testSavingInitialPositionImmediatelyResetsTimerToCurrentSettings() {
         let suiteName = "SneakyTimerTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
@@ -180,14 +180,13 @@ final class TimerViewModelTests: XCTestCase {
         viewModel.toggleRunning()
         now = startDate.addingTimeInterval(60)
         viewModel.tick(at: now)
-        let beforeSave = viewModel.snapshot
 
         viewModel.saveInitialTimerPosition(50)
 
-        XCTAssertEqual(viewModel.snapshot, beforeSave)
-        viewModel.toggleRunning()
         XCTAssertEqual(viewModel.snapshot.state, .paused)
-        XCTAssertEqual(viewModel.snapshot.remaining, 540, accuracy: 0.001)
+        XCTAssertEqual(viewModel.snapshot.remaining, 600, accuracy: 0.001)
+        XCTAssertEqual(viewModel.snapshot.stealthRemaining, 600, accuracy: 0.001)
+        XCTAssertEqual(viewModel.snapshot.visualProgress, 0.5, accuracy: 0.001)
 
         viewModel.toggleRunning()
         XCTAssertEqual(viewModel.snapshot.state, .running)
