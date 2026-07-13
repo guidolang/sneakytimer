@@ -5,6 +5,7 @@ import Foundation
 final class TimerViewModel: ObservableObject {
     @Published private(set) var snapshot: TimerSnapshot
     @Published private(set) var adjustmentDuration: TimeInterval
+    @Published private(set) var initialTimerPosition: Int
     @Published private(set) var isShowingActualRemaining = false
     @Published var hidesAdjustedTime: Bool {
         didSet {
@@ -24,10 +25,12 @@ final class TimerViewModel: ObservableObject {
     private var ticker: AnyCancellable?
     private var actualRemainingRevealEndDate: Date?
     private var isTimeDisplayPressed = false
+    private var shouldStartNewRunOnPlay = true
 
     private static let lastDurationKey = "lastEnteredDuration"
     private static let adjustmentDurationKey = "adjustmentDuration"
     private static let hidesAdjustedTimeKey = "hidesAdjustedTime"
+    private static let initialTimerPositionKey = "initialTimerPosition"
 
     init(
         engine: TimerEngine? = nil,
@@ -44,8 +47,10 @@ final class TimerViewModel: ObservableObject {
         let storedDuration = defaults.object(forKey: Self.lastDurationKey) as? Double
         let storedAdjustmentDuration = defaults.object(forKey: Self.adjustmentDurationKey) as? Double
         let storedHidesAdjustedTime = defaults.object(forKey: Self.hidesAdjustedTimeKey) as? Bool
+        let storedInitialTimerPosition = defaults.object(forKey: Self.initialTimerPositionKey) as? Int
         adjustmentDuration = storedAdjustmentDuration ?? 30
         hidesAdjustedTime = storedHidesAdjustedTime ?? true
+        initialTimerPosition = Self.sanitizedInitialTimerPosition(storedInitialTimerPosition ?? 100)
         self.engine = engine ?? TimerEngine(defaultDuration: storedDuration ?? 60)
         self.alarmService = alarmService
         self.completionNotifier = completionNotifier
@@ -64,19 +69,31 @@ final class TimerViewModel: ObservableObject {
 
     var countdownText: String {
         let displayedRemaining = hidesAdjustedTime && !isShowingActualRemaining ? snapshot.stealthRemaining : snapshot.remaining
-        return Self.formatDuration(displayedRemaining)
+        return TimerFormatting.countdown(displayedRemaining)
     }
 
     var entryDefaultText: String {
-        Self.digits(for: snapshot.lastEnteredDuration)
+        TimerFormatting.digits(for: snapshot.lastEnteredDuration)
     }
 
     var adjustmentEntryDefaultText: String {
-        Self.digits(for: adjustmentDuration)
+        TimerFormatting.digits(for: adjustmentDuration)
     }
 
     var adjustmentDisplayText: String {
-        Self.formatReadableDuration(adjustmentDuration)
+        TimerFormatting.readableDuration(adjustmentDuration)
+    }
+
+    var initialDurationDisplayText: String {
+        TimerFormatting.readableDuration(snapshot.lastEnteredDuration)
+    }
+
+    var initialPositionEntryDefaultText: String {
+        String(initialTimerPosition)
+    }
+
+    var initialPositionDisplayText: String {
+        "\(initialTimerPosition)%"
     }
 
     var isRunning: Bool {
@@ -85,7 +102,18 @@ final class TimerViewModel: ObservableObject {
 
     func toggleRunning() {
         let now = nowProvider()
-        engine.toggleRunning(at: now)
+        switch snapshot.state {
+        case .running:
+            engine.pause(at: now)
+        case .paused:
+            if shouldStartNewRunOnPlay {
+                beginNewRun(duration: snapshot.lastEnteredDuration, at: now)
+            } else {
+                resumeCurrentRun(at: now)
+            }
+        case .idle, .completed:
+            beginNewRun(duration: snapshot.lastEnteredDuration, at: now)
+        }
         refresh(at: now)
         updateCompletionAlert()
     }
@@ -100,7 +128,7 @@ final class TimerViewModel: ObservableObject {
 
     func start(duration: TimeInterval) {
         let now = nowProvider()
-        engine.start(duration: duration, at: now)
+        beginNewRun(duration: duration, at: now)
         defaults.set(duration, forKey: Self.lastDurationKey)
         endActualRemainingReveal()
         refresh(at: now)
@@ -110,6 +138,7 @@ final class TimerViewModel: ObservableObject {
     func save(duration: TimeInterval) {
         engine.setPaused(duration: duration)
         defaults.set(duration, forKey: Self.lastDurationKey)
+        shouldStartNewRunOnPlay = true
         endActualRemainingReveal()
         refresh(at: nowProvider())
         updateCompletionAlert()
@@ -118,6 +147,13 @@ final class TimerViewModel: ObservableObject {
     func saveAdjustmentDuration(_ duration: TimeInterval) {
         adjustmentDuration = max(0, duration)
         defaults.set(adjustmentDuration, forKey: Self.adjustmentDurationKey)
+    }
+
+    func saveInitialTimerPosition(_ position: Int) {
+        guard (1...100).contains(position) else { return }
+        initialTimerPosition = position
+        defaults.set(position, forKey: Self.initialTimerPositionKey)
+        shouldStartNewRunOnPlay = true
     }
 
     func handleTimeDisplayPress() {
@@ -133,65 +169,21 @@ final class TimerViewModel: ObservableObject {
         revealActualRemaining(until: nowProvider().addingTimeInterval(actualRemainingHoldDuration))
     }
 
-    static func formatDuration(_ duration: TimeInterval) -> String {
-        let totalSeconds = max(0, Int(ceil(duration)))
-        if totalSeconds > 60 * 60 {
-            return formatHoursMinutesSeconds(totalSeconds)
-        }
-
-        let minutes = totalSeconds / 60
-        let seconds = totalSeconds % 60
-        return String(format: "%02d : %02d", minutes, seconds)
+    private static func sanitizedInitialTimerPosition(_ position: Int) -> Int {
+        (1...100).contains(position) ? position : 100
     }
 
-    static func formatEntryDuration(_ duration: TimeInterval) -> String {
-        formatHoursMinutesSeconds(max(0, Int(duration.rounded())))
+    private func beginNewRun(duration: TimeInterval, at date: Date) {
+        engine.start(
+            duration: duration,
+            initialProgress: Double(initialTimerPosition) / 100,
+            at: date
+        )
+        shouldStartNewRunOnPlay = false
     }
 
-    static func duration(from digits: String) -> TimeInterval {
-        let padded = String(digits.suffix(6)).leftPadded(toLength: 6, with: "0")
-        let hourDigits = padded.prefix(2)
-        let minuteDigits = padded.dropFirst(2).prefix(2)
-        let secondDigits = padded.suffix(2)
-        let hours = Int(hourDigits) ?? 0
-        let minutes = Int(minuteDigits) ?? 0
-        let seconds = Int(secondDigits) ?? 0
-        return TimeInterval(hours * 60 * 60 + minutes * 60 + seconds)
-    }
-
-    static func digits(for duration: TimeInterval) -> String {
-        let totalSeconds = max(0, Int(duration.rounded()))
-        let hours = min(totalSeconds / 3600, 99)
-        let minutes = (totalSeconds % 3600) / 60
-        let seconds = totalSeconds % 60
-        return String(format: "%02d%02d%02d", hours, minutes, seconds)
-    }
-
-    static func formatReadableDuration(_ duration: TimeInterval) -> String {
-        let totalSeconds = max(0, Int(duration.rounded()))
-        let hours = totalSeconds / 3600
-        let minutes = (totalSeconds % 3600) / 60
-        let seconds = totalSeconds % 60
-        var parts: [String] = []
-
-        if hours > 0 {
-            parts.append("\(hours) hr")
-        }
-        if minutes > 0 {
-            parts.append("\(minutes) min")
-        }
-        if seconds > 0 || parts.isEmpty {
-            parts.append("\(seconds) sec")
-        }
-
-        return parts.joined(separator: " ")
-    }
-
-    private static func formatHoursMinutesSeconds(_ totalSeconds: Int) -> String {
-        let hours = totalSeconds / 3600
-        let minutes = (totalSeconds % 3600) / 60
-        let seconds = totalSeconds % 60
-        return String(format: "%02d : %02d : %02d", hours, minutes, seconds)
+    private func resumeCurrentRun(at date: Date) {
+        engine.resume(at: date)
     }
 
     private func adjust(by delta: TimeInterval) {
@@ -246,12 +238,5 @@ final class TimerViewModel: ObservableObject {
         actualRemainingRevealEndDate = nil
         isTimeDisplayPressed = false
         isShowingActualRemaining = false
-    }
-}
-
-private extension String {
-    func leftPadded(toLength length: Int, with character: Character) -> String {
-        guard count < length else { return self }
-        return String(repeating: String(character), count: length - count) + self
     }
 }
