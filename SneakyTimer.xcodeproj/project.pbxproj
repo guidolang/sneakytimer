@@ -17,6 +17,9 @@
 		1A0000010000000000000008 /* TimerEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000020000000000000008 /* TimerEngineTests.swift */; };
 		1A0000010000000000000009 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1A0000020000000000000009 /* Assets.xcassets */; };
 		1A0000010000000000000010 /* TimerCompletionNotifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000020000000000000010 /* TimerCompletionNotifier.swift */; };
+		1A0000010000000000000012 /* TimerFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000020000000000000012 /* TimerFormatting.swift */; };
+		1A0000010000000000000013 /* EntryBufferTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000020000000000000013 /* EntryBufferTests.swift */; };
+		1A0000010000000000000014 /* TimerViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000020000000000000014 /* TimerViewModelTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -41,6 +44,9 @@
 		1A0000020000000000000009 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		1A0000020000000000000010 /* TimerCompletionNotifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerCompletionNotifier.swift; sourceTree = "<group>"; };
 		1A0000020000000000000011 /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config/Signing.xcconfig; sourceTree = "<group>"; };
+		1A0000020000000000000012 /* TimerFormatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerFormatting.swift; sourceTree = "<group>"; };
+		1A0000020000000000000013 /* EntryBufferTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EntryBufferTests.swift; sourceTree = "<group>"; };
+		1A0000020000000000000014 /* TimerViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerViewModelTests.swift; sourceTree = "<group>"; };
 		1A0000060000000000000001 /* SneakyTimer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SneakyTimer.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1A0000060000000000000002 /* SneakyTimerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SneakyTimerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -85,6 +91,7 @@
 				1A0000020000000000000007 /* DurationEntryView.swift */,
 				1A0000020000000000000009 /* Assets.xcassets */,
 				1A0000020000000000000010 /* TimerCompletionNotifier.swift */,
+				1A0000020000000000000012 /* TimerFormatting.swift */,
 			);
 			path = SneakyTimer;
 			sourceTree = "<group>";
@@ -93,6 +100,8 @@
 			isa = PBXGroup;
 			children = (
 				1A0000020000000000000008 /* TimerEngineTests.swift */,
+				1A0000020000000000000013 /* EntryBufferTests.swift */,
+				1A0000020000000000000014 /* TimerViewModelTests.swift */,
 			);
 			path = SneakyTimerTests;
 			sourceTree = "<group>";
@@ -213,6 +222,7 @@
 				1A0000010000000000000006 /* CircularTimerView.swift in Sources */,
 				1A0000010000000000000007 /* DurationEntryView.swift in Sources */,
 				1A0000010000000000000010 /* TimerCompletionNotifier.swift in Sources */,
+				1A0000010000000000000012 /* TimerFormatting.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -221,6 +231,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				1A0000010000000000000008 /* TimerEngineTests.swift in Sources */,
+				1A0000010000000000000013 /* EntryBufferTests.swift in Sources */,
+				1A0000010000000000000014 /* TimerViewModelTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

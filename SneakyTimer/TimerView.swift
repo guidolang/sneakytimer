@@ -7,6 +7,7 @@ struct TimerView: View {
     @StateObject private var viewModel = TimerViewModel()
     @State private var navigationPath: [TimerRoute] = []
     @State private var activeDurationEditor: DurationEditorMode?
+    @State private var isShowingPositionEditor = false
 
     var body: some View {
         NavigationStack(path: $navigationPath) {
@@ -17,8 +18,14 @@ struct TimerView: View {
                     case .settings:
                         SettingsView(
                             viewModel: viewModel,
+                            onShowInitialDurationEditor: {
+                                activeDurationEditor = .initialDuration
+                            },
                             onShowAdjustmentEditor: {
                                 activeDurationEditor = .adjustment
+                            },
+                            onShowPositionEditor: {
+                                isShowingPositionEditor = true
                             }
                         )
                     }
@@ -31,6 +38,20 @@ struct TimerView: View {
                 onSave: { saveDuration($0, for: mode) },
                 onCancel: {
                     activeDurationEditor = nil
+                }
+            )
+            .presentationDetents([.height(580), .large])
+        }
+        .sheet(isPresented: $isShowingPositionEditor) {
+            PercentageEntryView(
+                heading: "Initial timer position",
+                initialDigits: viewModel.initialPositionEntryDefaultText,
+                onSave: {
+                    viewModel.saveInitialTimerPosition($0)
+                    isShowingPositionEditor = false
+                },
+                onCancel: {
+                    isShowingPositionEditor = false
                 }
             )
             .presentationDetents([.height(580), .large])
@@ -74,6 +95,8 @@ struct TimerView: View {
 
     private var topBar: some View {
         HStack {
+            Spacer()
+
             Button {
                 navigationPath.append(.settings)
             } label: {
@@ -84,20 +107,6 @@ struct TimerView: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Settings")
-
-            Spacer()
-
-            Button {
-                activeDurationEditor = .reset
-            } label: {
-                Text("Reset")
-                    .font(.system(size: 17, weight: .semibold, design: .rounded))
-                    .foregroundStyle(topBarForegroundColor)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Reset timer")
         }
         .padding(.top, 8)
     }
@@ -172,7 +181,7 @@ struct TimerView: View {
 
     private func initialDigits(for mode: DurationEditorMode) -> String {
         switch mode {
-        case .reset:
+        case .initialDuration:
             viewModel.entryDefaultText
         case .adjustment:
             viewModel.adjustmentEntryDefaultText
@@ -181,9 +190,8 @@ struct TimerView: View {
 
     private func saveDuration(_ duration: TimeInterval, for mode: DurationEditorMode) {
         switch mode {
-        case .reset:
+        case .initialDuration:
             viewModel.save(duration: duration)
-            navigationPath.removeAll()
         case .adjustment:
             viewModel.saveAdjustmentDuration(duration)
         }
@@ -200,14 +208,14 @@ private enum TimerRoute: Hashable {
 }
 
 private enum DurationEditorMode: Hashable, Identifiable {
-    case reset
+    case initialDuration
     case adjustment
 
     var id: Self { self }
 
     var heading: String {
         switch self {
-        case .reset:
+        case .initialDuration:
             "Initial timer duration"
         case .adjustment:
             "Timer adjustment (+/−)"
@@ -217,34 +225,68 @@ private enum DurationEditorMode: Hashable, Identifiable {
 
 private struct SettingsView: View {
     @ObservedObject var viewModel: TimerViewModel
+    let onShowInitialDurationEditor: () -> Void
     let onShowAdjustmentEditor: () -> Void
+    let onShowPositionEditor: () -> Void
 
     var body: some View {
         Form {
             Section {
-                Toggle("Hide adjusted time", isOn: $viewModel.hidesAdjustedTime)
+                Button(action: onShowInitialDurationEditor) {
+                    SettingsValueRow(
+                        title: "Initial timer duration",
+                        value: viewModel.initialDurationDisplayText
+                    )
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Initial timer duration")
+                .accessibilityValue(viewModel.initialDurationDisplayText)
+
+                Button(action: onShowPositionEditor) {
+                    SettingsValueRow(
+                        title: "Initial timer position",
+                        value: viewModel.initialPositionDisplayText
+                    )
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Initial timer position")
+                .accessibilityValue(viewModel.initialPositionDisplayText)
 
                 Button(action: onShowAdjustmentEditor) {
-                    HStack {
-                        Text("Timer adjustment (+/−)")
-                            .foregroundStyle(.primary)
-
-                        Spacer()
-
-                        Text(viewModel.adjustmentDisplayText)
-                            .foregroundStyle(.secondary)
-
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(.tertiary)
-                    }
+                    SettingsValueRow(
+                        title: "Timer adjustment (+/−)",
+                        value: viewModel.adjustmentDisplayText
+                    )
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Timer adjustment")
                 .accessibilityValue(viewModel.adjustmentDisplayText)
+
+                Toggle("Hide adjusted time", isOn: $viewModel.hidesAdjustedTime)
             }
         }
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct SettingsValueRow: View {
+    let title: String
+    let value: String
+
+    var body: some View {
+        HStack {
+            Text(title)
+                .foregroundStyle(.primary)
+
+            Spacer()
+
+            Text(value)
+                .foregroundStyle(.secondary)
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.tertiary)
+        }
     }
 }
