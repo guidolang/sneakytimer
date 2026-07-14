@@ -5,6 +5,8 @@ import Foundation
 final class TimerViewModel: ObservableObject {
     @Published private(set) var snapshot: TimerSnapshot
     @Published private(set) var adjustmentDuration: TimeInterval
+    @Published private(set) var displayedInitialDuration: TimeInterval
+    @Published private(set) var actualInitialDuration: TimeInterval
     @Published private(set) var initialTimerPosition: Int
     @Published private(set) var isShowingActualRemaining = false
     @Published var hidesAdjustedTime: Bool {
@@ -28,6 +30,7 @@ final class TimerViewModel: ObservableObject {
     private var shouldStartNewRunOnPlay = true
 
     private static let lastDurationKey = "lastEnteredDuration"
+    private static let actualInitialDurationKey = "actualInitialDuration"
     private static let adjustmentDurationKey = "adjustmentDuration"
     private static let hidesAdjustedTimeKey = "hidesAdjustedTime"
     private static let initialTimerPositionKey = "initialTimerPosition"
@@ -45,13 +48,17 @@ final class TimerViewModel: ObservableObject {
         self.nowProvider = nowProvider
         self.actualRemainingHoldDuration = actualRemainingHoldDuration
         let storedDuration = defaults.object(forKey: Self.lastDurationKey) as? Double
+        let displayedDuration = storedDuration ?? 60
+        let storedActualInitialDuration = defaults.object(forKey: Self.actualInitialDurationKey) as? Double
         let storedAdjustmentDuration = defaults.object(forKey: Self.adjustmentDurationKey) as? Double
         let storedHidesAdjustedTime = defaults.object(forKey: Self.hidesAdjustedTimeKey) as? Bool
         let storedInitialTimerPosition = defaults.object(forKey: Self.initialTimerPositionKey) as? Int
         adjustmentDuration = storedAdjustmentDuration ?? 30
+        displayedInitialDuration = max(0, displayedDuration)
+        actualInitialDuration = max(0, storedActualInitialDuration ?? displayedDuration)
         hidesAdjustedTime = storedHidesAdjustedTime ?? true
         initialTimerPosition = Self.sanitizedInitialTimerPosition(storedInitialTimerPosition ?? 100)
-        self.engine = engine ?? TimerEngine(defaultDuration: storedDuration ?? 60)
+        self.engine = engine ?? TimerEngine(defaultDuration: displayedDuration)
         self.alarmService = alarmService
         self.completionNotifier = completionNotifier
         snapshot = self.engine.snapshot(at: nowProvider())
@@ -73,7 +80,11 @@ final class TimerViewModel: ObservableObject {
     }
 
     var entryDefaultText: String {
-        TimerFormatting.digits(for: snapshot.lastEnteredDuration)
+        TimerFormatting.digits(for: displayedInitialDuration)
+    }
+
+    var actualDurationEntryDefaultText: String {
+        TimerFormatting.digits(for: actualInitialDuration)
     }
 
     var adjustmentEntryDefaultText: String {
@@ -84,8 +95,12 @@ final class TimerViewModel: ObservableObject {
         TimerFormatting.readableDuration(adjustmentDuration)
     }
 
-    var initialDurationDisplayText: String {
-        TimerFormatting.readableDuration(snapshot.lastEnteredDuration)
+    var displayedDurationDisplayText: String {
+        TimerFormatting.readableDuration(displayedInitialDuration)
+    }
+
+    var actualDurationDisplayText: String {
+        TimerFormatting.readableDuration(actualInitialDuration)
     }
 
     var initialPositionEntryDefaultText: String {
@@ -107,12 +122,12 @@ final class TimerViewModel: ObservableObject {
             engine.pause(at: now)
         case .paused:
             if shouldStartNewRunOnPlay {
-                beginNewRun(duration: snapshot.lastEnteredDuration, at: now)
+                beginNewRun(at: now)
             } else {
                 resumeCurrentRun(at: now)
             }
         case .idle, .completed:
-            beginNewRun(duration: snapshot.lastEnteredDuration, at: now)
+            beginNewRun(at: now)
         }
         refresh(at: now)
         updateCompletionAlert()
@@ -128,16 +143,47 @@ final class TimerViewModel: ObservableObject {
 
     func start(duration: TimeInterval) {
         let now = nowProvider()
-        beginNewRun(duration: duration, at: now)
-        defaults.set(duration, forKey: Self.lastDurationKey)
+        displayedInitialDuration = max(0, duration)
+        actualInitialDuration = displayedInitialDuration
+        defaults.set(displayedInitialDuration, forKey: Self.lastDurationKey)
+        defaults.set(actualInitialDuration, forKey: Self.actualInitialDurationKey)
+        engine.start(
+            displayedDuration: displayedInitialDuration,
+            actualDuration: actualInitialDuration,
+            initialProgress: Double(initialTimerPosition) / 100,
+            at: now
+        )
+        shouldStartNewRunOnPlay = false
         endActualRemainingReveal()
         refresh(at: now)
         updateCompletionAlert()
     }
 
+    func saveDisplayedDuration(_ duration: TimeInterval) {
+        let sanitizedDuration = max(0, duration)
+        displayedInitialDuration = sanitizedDuration
+        actualInitialDuration = sanitizedDuration
+        defaults.set(sanitizedDuration, forKey: Self.lastDurationKey)
+        defaults.set(sanitizedDuration, forKey: Self.actualInitialDurationKey)
+        resetToCurrentSettings()
+    }
+
+    func saveActualDuration(_ duration: TimeInterval) {
+        actualInitialDuration = max(0, duration)
+        defaults.set(actualInitialDuration, forKey: Self.actualInitialDurationKey)
+        resetToCurrentSettings()
+    }
+
     func save(duration: TimeInterval) {
-        engine.setPaused(duration: duration)
-        defaults.set(duration, forKey: Self.lastDurationKey)
+        saveDisplayedDuration(duration)
+    }
+
+    private func preparePausedTimerFromCurrentSettings() {
+        engine.setPaused(
+            displayedDuration: displayedInitialDuration,
+            actualDuration: actualInitialDuration,
+            initialProgress: Double(initialTimerPosition) / 100
+        )
         shouldStartNewRunOnPlay = true
         endActualRemainingReveal()
         refresh(at: nowProvider())
@@ -157,14 +203,7 @@ final class TimerViewModel: ObservableObject {
     }
 
     func resetToCurrentSettings() {
-        engine.setPaused(
-            duration: snapshot.lastEnteredDuration,
-            initialProgress: Double(initialTimerPosition) / 100
-        )
-        shouldStartNewRunOnPlay = true
-        endActualRemainingReveal()
-        refresh(at: nowProvider())
-        updateCompletionAlert()
+        preparePausedTimerFromCurrentSettings()
     }
 
     func handleTimeDisplayPress() {
@@ -184,9 +223,10 @@ final class TimerViewModel: ObservableObject {
         (1...100).contains(position) ? position : 100
     }
 
-    private func beginNewRun(duration: TimeInterval, at date: Date) {
+    private func beginNewRun(at date: Date) {
         engine.start(
-            duration: duration,
+            displayedDuration: displayedInitialDuration,
+            actualDuration: actualInitialDuration,
             initialProgress: Double(initialTimerPosition) / 100,
             at: date
         )
