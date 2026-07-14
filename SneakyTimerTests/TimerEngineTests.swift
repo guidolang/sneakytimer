@@ -4,6 +4,26 @@ import XCTest
 final class TimerEngineTests: XCTestCase {
     private let startDate = Date(timeIntervalSinceReferenceDate: 1_000)
 
+    func testDifferentDisplayedAndActualDurationsDrainTogetherWithoutVisibleJump() {
+        var engine = TimerEngine(defaultDuration: 600)
+
+        engine.start(
+            displayedDuration: 600,
+            actualDuration: 300,
+            at: startDate
+        )
+
+        let initial = engine.snapshot(at: startDate)
+        XCTAssertEqual(initial.remaining, 300, accuracy: 0.001)
+        XCTAssertEqual(initial.stealthRemaining, 600, accuracy: 0.001)
+        XCTAssertEqual(initial.visualProgress, 1, accuracy: 0.001)
+
+        let halfway = engine.snapshot(at: startDate.addingTimeInterval(150))
+        XCTAssertEqual(halfway.remaining, 150, accuracy: 0.001)
+        XCTAssertEqual(halfway.stealthRemaining, 300, accuracy: 0.001)
+        XCTAssertEqual(halfway.visualProgress, 0.5, accuracy: 0.001)
+    }
+
     func testStartCountsDownFromSelectedDuration() {
         var engine = TimerEngine(defaultDuration: 60)
 

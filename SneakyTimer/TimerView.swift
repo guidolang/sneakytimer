@@ -18,8 +18,11 @@ struct TimerView: View {
                     case .settings:
                         SettingsView(
                             viewModel: viewModel,
-                            onShowInitialDurationEditor: {
-                                activeDurationEditor = .initialDuration
+                            onShowDisplayedDurationEditor: {
+                                activeDurationEditor = .displayedDuration
+                            },
+                            onShowActualDurationEditor: {
+                                activeDurationEditor = .actualDuration
                             },
                             onShowAdjustmentEditor: {
                                 activeDurationEditor = .adjustment
@@ -185,8 +188,10 @@ struct TimerView: View {
 
     private func initialDigits(for mode: DurationEditorMode) -> String {
         switch mode {
-        case .initialDuration:
+        case .displayedDuration:
             viewModel.entryDefaultText
+        case .actualDuration:
+            viewModel.actualDurationEntryDefaultText
         case .adjustment:
             viewModel.adjustmentEntryDefaultText
         }
@@ -194,8 +199,10 @@ struct TimerView: View {
 
     private func saveDuration(_ duration: TimeInterval, for mode: DurationEditorMode) {
         switch mode {
-        case .initialDuration:
-            viewModel.save(duration: duration)
+        case .displayedDuration:
+            viewModel.saveDisplayedDuration(duration)
+        case .actualDuration:
+            viewModel.saveActualDuration(duration)
         case .adjustment:
             viewModel.saveAdjustmentDuration(duration)
         }
@@ -212,15 +219,18 @@ private enum TimerRoute: Hashable {
 }
 
 private enum DurationEditorMode: Hashable, Identifiable {
-    case initialDuration
+    case displayedDuration
+    case actualDuration
     case adjustment
 
     var id: Self { self }
 
     var heading: String {
         switch self {
-        case .initialDuration:
-            "Initial timer duration"
+        case .displayedDuration:
+            "Initial displayed duration"
+        case .actualDuration:
+            "Initial actual duration"
         case .adjustment:
             "Timer adjustment (+/−)"
         }
@@ -229,7 +239,8 @@ private enum DurationEditorMode: Hashable, Identifiable {
 
 private struct SettingsView: View {
     @ObservedObject var viewModel: TimerViewModel
-    let onShowInitialDurationEditor: () -> Void
+    let onShowDisplayedDurationEditor: () -> Void
+    let onShowActualDurationEditor: () -> Void
     let onShowAdjustmentEditor: () -> Void
     let onShowPositionEditor: () -> Void
     let onResetTimer: () -> Void
@@ -237,15 +248,25 @@ private struct SettingsView: View {
     var body: some View {
         Form {
             Section {
-                Button(action: onShowInitialDurationEditor) {
+                Button(action: onShowDisplayedDurationEditor) {
                     SettingsValueRow(
-                        title: "Initial timer duration",
-                        value: viewModel.initialDurationDisplayText
+                        title: "Initial displayed duration",
+                        value: viewModel.displayedDurationDisplayText
                     )
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Initial timer duration")
-                .accessibilityValue(viewModel.initialDurationDisplayText)
+                .accessibilityLabel("Initial displayed duration")
+                .accessibilityValue(viewModel.displayedDurationDisplayText)
+
+                Button(action: onShowActualDurationEditor) {
+                    SettingsValueRow(
+                        title: "Initial actual duration",
+                        value: viewModel.actualDurationDisplayText
+                    )
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Initial actual duration")
+                .accessibilityValue(viewModel.actualDurationDisplayText)
 
                 Button(action: onShowPositionEditor) {
                     SettingsValueRow(

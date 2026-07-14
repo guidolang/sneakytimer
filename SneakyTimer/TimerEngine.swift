@@ -52,28 +52,56 @@ struct TimerEngine: Equatable {
     }
 
     mutating func start(duration: TimeInterval, initialProgress: Double = 1, at date: Date) {
-        let sanitizedDuration = max(0, duration)
+        start(
+            displayedDuration: duration,
+            actualDuration: duration,
+            initialProgress: initialProgress,
+            at: date
+        )
+    }
+
+    mutating func start(
+        displayedDuration: TimeInterval,
+        actualDuration: TimeInterval,
+        initialProgress: Double = 1,
+        at date: Date
+    ) {
+        let sanitizedDisplayedDuration = max(0, displayedDuration)
+        let sanitizedActualDuration = max(0, actualDuration)
         let sanitizedProgress = clamp(initialProgress, lower: 0, upper: 1)
-        configuredDuration = sanitizedDuration
-        lastEnteredDuration = sanitizedDuration
-        state = sanitizedDuration > 0 ? .running : .completed
+        configuredDuration = sanitizedActualDuration
+        lastEnteredDuration = sanitizedDisplayedDuration
+        state = sanitizedActualDuration > 0 ? .running : .completed
         anchorTime = date
-        anchorRemaining = sanitizedDuration
-        anchorStealthRemaining = sanitizedDuration
-        anchorVisualProgress = sanitizedDuration > 0 ? sanitizedProgress : 0
+        anchorRemaining = sanitizedActualDuration
+        anchorStealthRemaining = sanitizedActualDuration > 0 ? sanitizedDisplayedDuration : 0
+        anchorVisualProgress = sanitizedActualDuration > 0 ? sanitizedProgress : 0
         completionAlreadyReported = false
     }
 
     mutating func setPaused(duration: TimeInterval, initialProgress: Double = 1) {
-        let sanitizedDuration = max(0, duration)
+        setPaused(
+            displayedDuration: duration,
+            actualDuration: duration,
+            initialProgress: initialProgress
+        )
+    }
+
+    mutating func setPaused(
+        displayedDuration: TimeInterval,
+        actualDuration: TimeInterval,
+        initialProgress: Double = 1
+    ) {
+        let sanitizedDisplayedDuration = max(0, displayedDuration)
+        let sanitizedActualDuration = max(0, actualDuration)
         let sanitizedProgress = clamp(initialProgress, lower: 0, upper: 1)
-        configuredDuration = sanitizedDuration
-        lastEnteredDuration = sanitizedDuration
-        state = sanitizedDuration > 0 ? .paused : .idle
+        configuredDuration = sanitizedActualDuration
+        lastEnteredDuration = sanitizedDisplayedDuration
+        state = sanitizedActualDuration > 0 ? .paused : .idle
         anchorTime = nil
-        anchorRemaining = sanitizedDuration
-        anchorStealthRemaining = sanitizedDuration
-        anchorVisualProgress = sanitizedDuration > 0 ? sanitizedProgress : 0
+        anchorRemaining = sanitizedActualDuration
+        anchorStealthRemaining = sanitizedActualDuration > 0 ? sanitizedDisplayedDuration : 0
+        anchorVisualProgress = sanitizedActualDuration > 0 ? sanitizedProgress : 0
         completionAlreadyReported = false
     }
 
