@@ -1,6 +1,14 @@
 # SneakyTimer
 
-SneakyTimer is a visual timer for parents. Parents can adjust time discreetly while the timer keeps moving smoothly. Settings let parents customize how adjusted time is displayed and how much each tap changes.
+## Problem
+
+As a parent of a child who responds well to visual timers, I often need to increase or decrease the remaining time. However, I don’t always have the patience or energy to explain why the duration needs to change.
+
+I wanted a simple iPhone app that would let me adjust a visual timer without drawing attention to the change. Most visual timer apps I found either require restarting the timer or make it obvious that the remaining time has been modified.
+
+That’s why I built SneakyTimer.
+
+SneakyTimer is a visual timer that lets parents display one duration while the timer follows another. While the timer is running, you can increase or decrease the actual remaining time by subtly changing the speed of the countdown. The displayed timer continues moving naturally, making the adjustment far less noticeable.
 
 <p align="center">
   <img src="docs/sneakytimer-demo.gif" alt="SneakyTimer app demonstration" width="320">
