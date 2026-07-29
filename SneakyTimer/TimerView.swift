@@ -27,11 +27,21 @@ struct TimerView: View {
                             onShowAdjustmentEditor: {
                                 activeDurationEditor = .adjustment
                             },
+                            onShowPresetEditor: {
+                                activeDurationEditor = .preset(index: $0)
+                            },
+                            onShowNewPresetEditor: {
+                                activeDurationEditor = .newPreset
+                            },
                             onShowPositionEditor: {
                                 isShowingPositionEditor = true
                             },
+                            onSelectPreset: {
+                                viewModel.preparePresetTimer(at: $0)
+                                navigationPath.removeAll()
+                            },
                             onResetTimer: {
-                                viewModel.resetToCurrentSettings()
+                                viewModel.resetToSelectedTimer()
                                 navigationPath.removeAll()
                             }
                         )
@@ -194,6 +204,10 @@ struct TimerView: View {
             viewModel.actualDurationEntryDefaultText
         case .adjustment:
             viewModel.adjustmentEntryDefaultText
+        case .preset(let index):
+            viewModel.presetEntryDefaultText(at: index)
+        case .newPreset:
+            ""
         }
     }
 
@@ -205,6 +219,10 @@ struct TimerView: View {
             viewModel.saveActualDuration(duration)
         case .adjustment:
             viewModel.saveAdjustmentDuration(duration)
+        case .preset(let index):
+            viewModel.savePresetDuration(duration, at: index)
+        case .newPreset:
+            viewModel.addPresetDuration(duration)
         }
         activeDurationEditor = nil
     }
@@ -222,6 +240,8 @@ private enum DurationEditorMode: Hashable, Identifiable {
     case displayedDuration
     case actualDuration
     case adjustment
+    case preset(index: Int)
+    case newPreset
 
     var id: Self { self }
 
@@ -233,21 +253,76 @@ private enum DurationEditorMode: Hashable, Identifiable {
             "Initial actual duration"
         case .adjustment:
             "Timer adjustment (+/−)"
+        case .preset, .newPreset:
+            "Preset timer duration"
         }
     }
 }
 
 private struct SettingsView: View {
     @ObservedObject var viewModel: TimerViewModel
+    @State private var pendingPresetDeletion: PresetDeletionConfirmation?
+    @State private var isShowingPresetDeletionAlert = false
     let onShowDisplayedDurationEditor: () -> Void
     let onShowActualDurationEditor: () -> Void
     let onShowAdjustmentEditor: () -> Void
+    let onShowPresetEditor: (Int) -> Void
+    let onShowNewPresetEditor: () -> Void
     let onShowPositionEditor: () -> Void
+    let onSelectPreset: (Int) -> Void
     let onResetTimer: () -> Void
 
     var body: some View {
         Form {
             Section {
+                Button(action: onShowAdjustmentEditor) {
+                    SettingsValueRow(
+                        title: "Timer adjustment (+/−)",
+                        value: viewModel.adjustmentDisplayText
+                    )
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Timer adjustment")
+                .accessibilityValue(viewModel.adjustmentDisplayText)
+
+                Toggle("Hide adjusted time", isOn: $viewModel.hidesAdjustedTime)
+
+                Button("Reset timer", role: .destructive, action: onResetTimer)
+            }
+
+            Section("Preset timers") {
+                ForEach(viewModel.presetDurations.indices, id: \.self) { index in
+                    PresetTimerRow(
+                        durationText: viewModel.presetDisplayText(at: index),
+                        onSelect: { onSelectPreset(index) },
+                        onEdit: { onShowPresetEditor(index) },
+                        onDelete: viewModel.canDeletePresetTimer ? {
+                            pendingPresetDeletion = PresetDeletionConfirmation(
+                                index: index,
+                                durationText: viewModel.presetDisplayText(at: index)
+                            )
+                            isShowingPresetDeletionAlert = true
+                        } : nil
+                    )
+                }
+
+                if viewModel.canAddPresetTimer {
+                    HStack {
+                        Spacer()
+
+                        Button(action: onShowNewPresetEditor) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 18, weight: .semibold))
+                                .frame(width: 32, height: 32)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.borderless)
+                        .accessibilityLabel("Add preset timer")
+                    }
+                }
+            }
+
+            Section("Custom timer") {
                 Button(action: onShowDisplayedDurationEditor) {
                     SettingsValueRow(
                         title: "Initial displayed duration",
@@ -278,25 +353,73 @@ private struct SettingsView: View {
                 .accessibilityLabel("Initial timer position")
                 .accessibilityValue(viewModel.initialPositionDisplayText)
 
-                Button(action: onShowAdjustmentEditor) {
-                    SettingsValueRow(
-                        title: "Timer adjustment (+/−)",
-                        value: viewModel.adjustmentDisplayText
-                    )
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Timer adjustment")
-                .accessibilityValue(viewModel.adjustmentDisplayText)
-
-                Toggle("Hide adjusted time", isOn: $viewModel.hidesAdjustedTime)
-            }
-
-            Section {
-                Button("Reset timer", role: .destructive, action: onResetTimer)
             }
         }
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
+        .alert(
+            "Do you want to delete the \(pendingPresetDeletion?.durationText ?? "") preset timer?",
+            isPresented: $isShowingPresetDeletionAlert,
+            presenting: pendingPresetDeletion
+        ) { confirmation in
+            Button("Delete", role: .destructive) {
+                isShowingPresetDeletionAlert = false
+                pendingPresetDeletion = nil
+                viewModel.deletePresetDuration(at: confirmation.index)
+            }
+
+            Button("Cancel", role: .cancel) {
+                isShowingPresetDeletionAlert = false
+                pendingPresetDeletion = nil
+            }
+        }
+    }
+}
+
+private struct PresetDeletionConfirmation {
+    let index: Int
+    let durationText: String
+}
+
+private struct PresetTimerRow: View {
+    let durationText: String
+    let onSelect: () -> Void
+    let onEdit: () -> Void
+    let onDelete: (() -> Void)?
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Button(action: onSelect) {
+                Text(durationText)
+                    .foregroundStyle(.primary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel("Set timer to \(durationText)")
+
+            Button(action: onEdit) {
+                Image(systemName: "square.and.pencil")
+                    .font(.system(size: 17, weight: .regular))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 32, height: 32)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel("Edit \(durationText) preset")
+
+            if let onDelete {
+                Button(action: onDelete) {
+                    Image(systemName: "trash")
+                        .font(.system(size: 17, weight: .regular))
+                        .foregroundStyle(.red)
+                        .frame(width: 32, height: 32)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel("Delete \(durationText) preset")
+            }
+        }
     }
 }
 
