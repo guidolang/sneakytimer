@@ -41,7 +41,7 @@ struct TimerView: View {
                                 navigationPath.removeAll()
                             },
                             onResetTimer: {
-                                viewModel.resetToCurrentSettings()
+                                viewModel.resetToSelectedTimer()
                                 navigationPath.removeAll()
                             }
                         )
@@ -275,6 +275,18 @@ private struct SettingsView: View {
     var body: some View {
         Form {
             Section {
+                Button(action: onShowAdjustmentEditor) {
+                    SettingsValueRow(
+                        title: "Timer adjustment (+/−)",
+                        value: viewModel.adjustmentDisplayText
+                    )
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Timer adjustment")
+                .accessibilityValue(viewModel.adjustmentDisplayText)
+
+                Toggle("Hide adjusted time", isOn: $viewModel.hidesAdjustedTime)
+
                 Button("Reset timer", role: .destructive, action: onResetTimer)
             }
 
@@ -341,17 +353,6 @@ private struct SettingsView: View {
                 .accessibilityLabel("Initial timer position")
                 .accessibilityValue(viewModel.initialPositionDisplayText)
 
-                Button(action: onShowAdjustmentEditor) {
-                    SettingsValueRow(
-                        title: "Timer adjustment (+/−)",
-                        value: viewModel.adjustmentDisplayText
-                    )
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Timer adjustment")
-                .accessibilityValue(viewModel.adjustmentDisplayText)
-
-                Toggle("Hide adjusted time", isOn: $viewModel.hidesAdjustedTime)
             }
         }
         .navigationTitle("Settings")

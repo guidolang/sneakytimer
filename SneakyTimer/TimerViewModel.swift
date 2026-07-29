@@ -228,6 +228,14 @@ final class TimerViewModel: ObservableObject {
         preparePausedTimerFromCurrentSettings()
     }
 
+    func resetToSelectedTimer() {
+        preparePausedTimer(
+            displayedDuration: preparedTimerConfiguration.displayedDuration,
+            actualDuration: preparedTimerConfiguration.actualDuration,
+            initialProgress: preparedTimerConfiguration.initialProgress
+        )
+    }
+
     func savePresetDuration(_ duration: TimeInterval, at index: Int) {
         guard presetDurations.indices.contains(index), duration.isFinite, duration > 0 else { return }
         presetDurations[index] = duration
