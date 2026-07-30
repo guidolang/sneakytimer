@@ -39,10 +39,6 @@ struct TimerView: View {
                             onSelectPreset: {
                                 viewModel.preparePresetTimer(at: $0)
                                 navigationPath.removeAll()
-                            },
-                            onResetTimer: {
-                                viewModel.resetToSelectedTimer()
-                                navigationPath.removeAll()
                             }
                         )
                     }
@@ -61,7 +57,7 @@ struct TimerView: View {
         }
         .sheet(isPresented: $isShowingPositionEditor) {
             PercentageEntryView(
-                heading: "Initial timer position",
+                heading: "Timer position",
                 initialDigits: viewModel.initialPositionEntryDefaultText,
                 onSave: {
                     viewModel.saveInitialTimerPosition($0)
@@ -112,6 +108,15 @@ struct TimerView: View {
 
     private var topBar: some View {
         HStack {
+            Button(action: viewModel.resetToSelectedTimer) {
+                Image(systemName: "clock.arrow.circlepath")
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(topBarForegroundColor)
+                    .frame(width: 44, height: 44)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Reset timer")
+
             Spacer()
 
             Button {
@@ -248,9 +253,9 @@ private enum DurationEditorMode: Hashable, Identifiable {
     var heading: String {
         switch self {
         case .displayedDuration:
-            "Initial displayed duration"
+            "Displayed duration"
         case .actualDuration:
-            "Initial actual duration"
+            "Actual duration"
         case .adjustment:
             "Timer adjustment (+/−)"
         case .preset, .newPreset:
@@ -270,7 +275,6 @@ private struct SettingsView: View {
     let onShowNewPresetEditor: () -> Void
     let onShowPositionEditor: () -> Void
     let onSelectPreset: (Int) -> Void
-    let onResetTimer: () -> Void
 
     var body: some View {
         Form {
@@ -286,8 +290,6 @@ private struct SettingsView: View {
                 .accessibilityValue(viewModel.adjustmentDisplayText)
 
                 Toggle("Hide adjusted time", isOn: $viewModel.hidesAdjustedTime)
-
-                Button("Reset timer", role: .destructive, action: onResetTimer)
             }
 
             Section("Preset timers") {
@@ -325,32 +327,32 @@ private struct SettingsView: View {
             Section("Custom timer") {
                 Button(action: onShowDisplayedDurationEditor) {
                     SettingsValueRow(
-                        title: "Initial displayed duration",
+                        title: "Displayed duration",
                         value: viewModel.displayedDurationDisplayText
                     )
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Initial displayed duration")
+                .accessibilityLabel("Displayed duration")
                 .accessibilityValue(viewModel.displayedDurationDisplayText)
 
                 Button(action: onShowActualDurationEditor) {
                     SettingsValueRow(
-                        title: "Initial actual duration",
+                        title: "Actual duration",
                         value: viewModel.actualDurationDisplayText
                     )
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Initial actual duration")
+                .accessibilityLabel("Actual duration")
                 .accessibilityValue(viewModel.actualDurationDisplayText)
 
                 Button(action: onShowPositionEditor) {
                     SettingsValueRow(
-                        title: "Initial timer position",
+                        title: "Timer position",
                         value: viewModel.initialPositionDisplayText
                     )
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Initial timer position")
+                .accessibilityLabel("Timer position")
                 .accessibilityValue(viewModel.initialPositionDisplayText)
 
             }
