@@ -583,6 +583,74 @@ final class TimerViewModelTests: XCTestCase {
     }
 
     @MainActor
+    func testRelaunchRestoresLastUsedPresetWithoutChangingCustomSettings() {
+        let suiteName = "SneakyTimerTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        let viewModel = TimerViewModel(
+            alarmService: SilentAlarmService(),
+            completionNotifier: SilentCompletionNotifier(),
+            defaults: defaults,
+            shouldStartTicker: false
+        )
+        viewModel.saveDisplayedDuration(120)
+        viewModel.saveActualDuration(75)
+        viewModel.saveInitialTimerPosition(40)
+        viewModel.preparePresetTimer(at: 1)
+
+        let restoredViewModel = TimerViewModel(
+            alarmService: SilentAlarmService(),
+            completionNotifier: SilentCompletionNotifier(),
+            defaults: defaults,
+            shouldStartTicker: false
+        )
+
+        XCTAssertEqual(restoredViewModel.snapshot.state, .paused)
+        XCTAssertEqual(restoredViewModel.snapshot.remaining, 300, accuracy: 0.001)
+        XCTAssertEqual(restoredViewModel.snapshot.stealthRemaining, 300, accuracy: 0.001)
+        XCTAssertEqual(restoredViewModel.snapshot.visualProgress, 1, accuracy: 0.001)
+        XCTAssertEqual(restoredViewModel.displayedInitialDuration, 120, accuracy: 0.001)
+        XCTAssertEqual(restoredViewModel.actualInitialDuration, 75, accuracy: 0.001)
+        XCTAssertEqual(restoredViewModel.initialTimerPosition, 40)
+
+        restoredViewModel.toggleRunning()
+        XCTAssertEqual(restoredViewModel.snapshot.state, .running)
+        XCTAssertEqual(restoredViewModel.snapshot.remaining, 300, accuracy: 0.001)
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    @MainActor
+    func testRelaunchRestoresLastUsedCustomTimerConfiguration() {
+        let suiteName = "SneakyTimerTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        let viewModel = TimerViewModel(
+            alarmService: SilentAlarmService(),
+            completionNotifier: SilentCompletionNotifier(),
+            defaults: defaults,
+            shouldStartTicker: false
+        )
+        viewModel.saveDisplayedDuration(120)
+        viewModel.saveActualDuration(75)
+        viewModel.saveInitialTimerPosition(40)
+
+        let restoredViewModel = TimerViewModel(
+            alarmService: SilentAlarmService(),
+            completionNotifier: SilentCompletionNotifier(),
+            defaults: defaults,
+            shouldStartTicker: false
+        )
+
+        XCTAssertEqual(restoredViewModel.snapshot.state, .paused)
+        XCTAssertEqual(restoredViewModel.snapshot.remaining, 75, accuracy: 0.001)
+        XCTAssertEqual(restoredViewModel.snapshot.stealthRemaining, 120, accuracy: 0.001)
+        XCTAssertEqual(restoredViewModel.snapshot.visualProgress, 0.4, accuracy: 0.001)
+
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    @MainActor
     func testStoredAndNewPresetTimersAreAlwaysSorted() {
         let suiteName = "SneakyTimerTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!

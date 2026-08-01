@@ -37,6 +37,9 @@ final class TimerViewModel: ObservableObject {
     private static let hidesAdjustedTimeKey = "hidesAdjustedTime"
     private static let initialTimerPositionKey = "initialTimerPosition"
     private static let presetDurationsKey = "presetDurations"
+    private static let lastUsedDisplayedDurationKey = "lastUsedDisplayedDuration"
+    private static let lastUsedActualDurationKey = "lastUsedActualDuration"
+    private static let lastUsedInitialProgressKey = "lastUsedInitialProgress"
     private static let defaultPresetDurations: [TimeInterval] = [60, 300, 600]
     private static let maximumPresetCount = 10
 
@@ -60,18 +63,31 @@ final class TimerViewModel: ObservableObject {
         let storedInitialTimerPosition = defaults.object(forKey: Self.initialTimerPositionKey) as? Int
         let storedPresetDurations = defaults.array(forKey: Self.presetDurationsKey)?
             .compactMap { ($0 as? NSNumber)?.doubleValue }
+        let customTimerConfiguration = PreparedTimerConfiguration(
+            displayedDuration: max(0, displayedDuration),
+            actualDuration: max(0, storedActualInitialDuration ?? displayedDuration),
+            initialProgress: Double(Self.sanitizedInitialTimerPosition(storedInitialTimerPosition ?? 100)) / 100
+        )
+        let lastUsedTimerConfiguration = Self.storedLastUsedTimerConfiguration(in: defaults)
+            ?? customTimerConfiguration
         adjustmentDuration = storedAdjustmentDuration ?? 30
         displayedInitialDuration = max(0, displayedDuration)
         actualInitialDuration = max(0, storedActualInitialDuration ?? displayedDuration)
         hidesAdjustedTime = storedHidesAdjustedTime ?? true
         initialTimerPosition = Self.sanitizedInitialTimerPosition(storedInitialTimerPosition ?? 100)
         presetDurations = Self.sanitizedPresetDurations(storedPresetDurations)
-        preparedTimerConfiguration = PreparedTimerConfiguration(
-            displayedDuration: max(0, displayedDuration),
-            actualDuration: max(0, storedActualInitialDuration ?? displayedDuration),
-            initialProgress: Double(Self.sanitizedInitialTimerPosition(storedInitialTimerPosition ?? 100)) / 100
-        )
-        self.engine = engine ?? TimerEngine(defaultDuration: displayedDuration)
+        preparedTimerConfiguration = lastUsedTimerConfiguration
+        if let engine {
+            self.engine = engine
+        } else {
+            var restoredEngine = TimerEngine(defaultDuration: lastUsedTimerConfiguration.displayedDuration)
+            restoredEngine.setPaused(
+                displayedDuration: lastUsedTimerConfiguration.displayedDuration,
+                actualDuration: lastUsedTimerConfiguration.actualDuration,
+                initialProgress: lastUsedTimerConfiguration.initialProgress
+            )
+            self.engine = restoredEngine
+        }
         self.alarmService = alarmService
         self.completionNotifier = completionNotifier
         snapshot = self.engine.snapshot(at: nowProvider())
@@ -171,6 +187,7 @@ final class TimerViewModel: ObservableObject {
             actualDuration: actualInitialDuration,
             initialProgress: Double(initialTimerPosition) / 100
         )
+        persistPreparedTimerConfiguration()
         defaults.set(displayedInitialDuration, forKey: Self.lastDurationKey)
         defaults.set(actualInitialDuration, forKey: Self.actualInitialDurationKey)
         engine.start(
@@ -300,6 +317,25 @@ final class TimerViewModel: ObservableObject {
         return storedDurations.sorted()
     }
 
+    private static func storedLastUsedTimerConfiguration(in defaults: UserDefaults) -> PreparedTimerConfiguration? {
+        guard let displayedDuration = defaults.object(forKey: lastUsedDisplayedDurationKey) as? Double,
+              let actualDuration = defaults.object(forKey: lastUsedActualDurationKey) as? Double,
+              let initialProgress = defaults.object(forKey: lastUsedInitialProgressKey) as? Double,
+              displayedDuration.isFinite,
+              actualDuration.isFinite,
+              initialProgress.isFinite,
+              displayedDuration >= 0,
+              actualDuration >= 0,
+              (0...1).contains(initialProgress) else {
+            return nil
+        }
+        return PreparedTimerConfiguration(
+            displayedDuration: displayedDuration,
+            actualDuration: actualDuration,
+            initialProgress: initialProgress
+        )
+    }
+
     private func persistSortedPresetDurations() {
         presetDurations.sort()
         defaults.set(presetDurations, forKey: Self.presetDurationsKey)
@@ -325,6 +361,7 @@ final class TimerViewModel: ObservableObject {
             actualDuration: actualDuration,
             initialProgress: initialProgress
         )
+        persistPreparedTimerConfiguration()
         engine.setPaused(
             displayedDuration: displayedDuration,
             actualDuration: actualDuration,
@@ -334,6 +371,21 @@ final class TimerViewModel: ObservableObject {
         endActualRemainingReveal()
         refresh(at: nowProvider())
         updateCompletionAlert()
+    }
+
+    private func persistPreparedTimerConfiguration() {
+        defaults.set(
+            preparedTimerConfiguration.displayedDuration,
+            forKey: Self.lastUsedDisplayedDurationKey
+        )
+        defaults.set(
+            preparedTimerConfiguration.actualDuration,
+            forKey: Self.lastUsedActualDurationKey
+        )
+        defaults.set(
+            preparedTimerConfiguration.initialProgress,
+            forKey: Self.lastUsedInitialProgressKey
+        )
     }
 
     private func resumeCurrentRun(at date: Date) {
