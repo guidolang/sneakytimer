@@ -21,9 +21,6 @@ struct TimerView: View {
                             onShowDisplayedDurationEditor: {
                                 activeDurationEditor = .displayedDuration
                             },
-                            onShowActualDurationEditor: {
-                                activeDurationEditor = .actualDuration
-                            },
                             onShowAdjustmentEditor: {
                                 activeDurationEditor = .adjustment
                             },
@@ -81,7 +78,10 @@ struct TimerView: View {
 
                 Spacer(minLength: 8)
 
-                CircularTimerView(progress: viewModel.snapshot.visualProgress)
+                CircularTimerView(
+                    progress: viewModel.snapshot.visualProgress,
+                    remainingColor: Color(timerColor: viewModel.timerColor)
+                )
                     .frame(maxWidth: 288)
                     .aspectRatio(1, contentMode: .fit)
                     .padding(.horizontal, 24)
@@ -205,8 +205,6 @@ struct TimerView: View {
         switch mode {
         case .displayedDuration:
             viewModel.entryDefaultText
-        case .actualDuration:
-            viewModel.actualDurationEntryDefaultText
         case .adjustment:
             viewModel.adjustmentEntryDefaultText
         case .preset(let index):
@@ -220,8 +218,6 @@ struct TimerView: View {
         switch mode {
         case .displayedDuration:
             viewModel.saveDisplayedDuration(duration)
-        case .actualDuration:
-            viewModel.saveActualDuration(duration)
         case .adjustment:
             viewModel.saveAdjustmentDuration(duration)
         case .preset(let index):
@@ -243,7 +239,6 @@ private enum TimerRoute: Hashable {
 
 private enum DurationEditorMode: Hashable, Identifiable {
     case displayedDuration
-    case actualDuration
     case adjustment
     case preset(index: Int)
     case newPreset
@@ -253,9 +248,7 @@ private enum DurationEditorMode: Hashable, Identifiable {
     var heading: String {
         switch self {
         case .displayedDuration:
-            "Displayed duration"
-        case .actualDuration:
-            "Actual duration"
+            "Duration"
         case .adjustment:
             "Timer adjustment (+/−)"
         case .preset, .newPreset:
@@ -268,8 +261,8 @@ private struct SettingsView: View {
     @ObservedObject var viewModel: TimerViewModel
     @State private var pendingPresetDeletion: PresetDeletionConfirmation?
     @State private var isShowingPresetDeletionAlert = false
+    @State private var isShowingColorPicker = false
     let onShowDisplayedDurationEditor: () -> Void
-    let onShowActualDurationEditor: () -> Void
     let onShowAdjustmentEditor: () -> Void
     let onShowPresetEditor: (Int) -> Void
     let onShowNewPresetEditor: () -> Void
@@ -279,6 +272,26 @@ private struct SettingsView: View {
     var body: some View {
         Form {
             Section {
+                Button(action: onShowDisplayedDurationEditor) {
+                    SettingsValueRow(
+                        title: "Duration",
+                        value: viewModel.displayedDurationDisplayText
+                    )
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Duration")
+                .accessibilityValue(viewModel.displayedDurationDisplayText)
+
+                Button(action: onShowPositionEditor) {
+                    SettingsValueRow(
+                        title: "Timer position",
+                        value: viewModel.initialPositionDisplayText
+                    )
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Timer position")
+                .accessibilityValue(viewModel.initialPositionDisplayText)
+
                 Button(action: onShowAdjustmentEditor) {
                     SettingsValueRow(
                         title: "Timer adjustment (+/−)",
@@ -290,6 +303,35 @@ private struct SettingsView: View {
                 .accessibilityValue(viewModel.adjustmentDisplayText)
 
                 Toggle("Hide adjusted time", isOn: $viewModel.hidesAdjustedTime)
+
+                Button {
+                    isShowingColorPicker = true
+                } label: {
+                    BackgroundColorRow(color: viewModel.timerColor)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Background color")
+                .accessibilityValue(viewModel.timerColor.hexString)
+                .popover(isPresented: $isShowingColorPicker) {
+                    VStack(spacing: 12) {
+                        SpectrumColorPicker(
+                            initialColor: viewModel.timerColor,
+                            onSelect: viewModel.saveTimerColor
+                        )
+                        .frame(height: 220)
+
+                        Button("Reset") {
+                            viewModel.saveTimerColor(.defaultRed)
+                            isShowingColorPicker = false
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.tint)
+                        .accessibilityLabel("Reset background color")
+                    }
+                    .frame(width: 280)
+                    .padding(12)
+                    .presentationCompactAdaptation(.popover)
+                }
             }
 
             Section("Preset timers") {
@@ -324,38 +366,6 @@ private struct SettingsView: View {
                 }
             }
 
-            Section("Custom timer") {
-                Button(action: onShowDisplayedDurationEditor) {
-                    SettingsValueRow(
-                        title: "Displayed duration",
-                        value: viewModel.displayedDurationDisplayText
-                    )
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Displayed duration")
-                .accessibilityValue(viewModel.displayedDurationDisplayText)
-
-                Button(action: onShowActualDurationEditor) {
-                    SettingsValueRow(
-                        title: "Actual duration",
-                        value: viewModel.actualDurationDisplayText
-                    )
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Actual duration")
-                .accessibilityValue(viewModel.actualDurationDisplayText)
-
-                Button(action: onShowPositionEditor) {
-                    SettingsValueRow(
-                        title: "Timer position",
-                        value: viewModel.initialPositionDisplayText
-                    )
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Timer position")
-                .accessibilityValue(viewModel.initialPositionDisplayText)
-
-            }
         }
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
@@ -375,6 +385,146 @@ private struct SettingsView: View {
                 pendingPresetDeletion = nil
             }
         }
+    }
+}
+
+private struct BackgroundColorRow: View {
+    let color: TimerColor
+
+    var body: some View {
+        HStack {
+            Text("Background color")
+                .foregroundStyle(.primary)
+
+            Spacer()
+
+            Circle()
+                .fill(Color(timerColor: color))
+                .frame(width: 24, height: 24)
+                .overlay(Circle().stroke(.secondary.opacity(0.35), lineWidth: 1))
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.tertiary)
+        }
+    }
+}
+
+private struct SpectrumColorPicker: View {
+    @State private var selection: UnitPoint
+    let onSelect: (TimerColor) -> Void
+
+    init(initialColor: TimerColor, onSelect: @escaping (TimerColor) -> Void) {
+        _selection = State(initialValue: Self.selectionPoint(for: initialColor))
+        self.onSelect = onSelect
+    }
+
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .topLeading) {
+                LinearGradient(
+                    colors: [.red, .yellow, .green, .cyan, .blue, .purple, .red],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+                .overlay {
+                    LinearGradient(
+                        stops: [
+                            .init(color: .white, location: 0),
+                            .init(color: .clear, location: 0.5),
+                            .init(color: .black, location: 1)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                }
+
+                Circle()
+                    .stroke(.white, lineWidth: 3)
+                    .background(Circle().stroke(.black.opacity(0.35), lineWidth: 5))
+                    .frame(width: 24, height: 24)
+                    .position(
+                        x: 12 + selection.x * max(geometry.size.width - 24, 0),
+                        y: 12 + selection.y * max(geometry.size.height - 24, 0)
+                    )
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        select(at: value.location, in: geometry.size)
+                    }
+            )
+        }
+        .accessibilityLabel("Color spectrum")
+    }
+
+    private func select(at location: CGPoint, in size: CGSize) {
+        guard size.width > 0, size.height > 0 else { return }
+        let x = min(max(location.x / size.width, 0), 1)
+        let y = min(max(location.y / size.height, 0), 1)
+        selection = UnitPoint(x: x, y: y)
+
+        let saturation: CGFloat
+        let brightness: CGFloat
+        if y <= 0.5 {
+            saturation = y * 2
+            brightness = 1
+        } else {
+            saturation = 1
+            brightness = (1 - y) * 2
+        }
+
+        if let color = TimerColor(
+            uiColor: UIColor(hue: x, saturation: saturation, brightness: brightness, alpha: 1)
+        ) {
+            onSelect(color)
+        }
+    }
+
+    private static func selectionPoint(for color: TimerColor) -> UnitPoint {
+        var hue: CGFloat = 0
+        var saturation: CGFloat = 0
+        var brightness: CGFloat = 0
+        var alpha: CGFloat = 0
+        guard UIColor(timerColor: color).getHue(
+            &hue,
+            saturation: &saturation,
+            brightness: &brightness,
+            alpha: &alpha
+        ) else {
+            return .center
+        }
+
+        let y = brightness < 0.999 ? 0.5 + (1 - brightness) / 2 : saturation / 2
+        return UnitPoint(x: hue, y: y)
+    }
+}
+
+private extension TimerColor {
+    init?(uiColor: UIColor) {
+        var red: CGFloat = 0
+        var green: CGFloat = 0
+        var blue: CGFloat = 0
+        var alpha: CGFloat = 0
+        guard uiColor.getRed(&red, green: &green, blue: &blue, alpha: &alpha) else { return nil }
+        self.init(
+            red: UInt8((red * 255).rounded()),
+            green: UInt8((green * 255).rounded()),
+            blue: UInt8((blue * 255).rounded())
+        )
+    }
+}
+
+private extension UIColor {
+    convenience init(timerColor: TimerColor) {
+        self.init(
+            red: CGFloat(timerColor.red) / 255,
+            green: CGFloat(timerColor.green) / 255,
+            blue: CGFloat(timerColor.blue) / 255,
+            alpha: 1
+        )
     }
 }
 

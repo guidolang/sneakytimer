@@ -2,6 +2,7 @@ import SwiftUI
 
 struct CircularTimerView: View {
     var progress: Double
+    var remainingColor: Color
 
     private var elapsedFraction: Double {
         min(max(1 - progress, 0), 1)
@@ -14,7 +15,7 @@ struct CircularTimerView: View {
 
             ZStack {
                 Circle()
-                    .fill(Color.sneakyRed)
+                    .fill(remainingColor)
                     .shadow(color: .black.opacity(0.18), radius: 12, x: 0, y: 7)
 
                 PieSlice(fraction: elapsedFraction)
@@ -63,13 +64,20 @@ private struct PieSlice: Shape {
 }
 
 extension Color {
-    static let sneakyRed = Color(red: 0.91, green: 0.02, blue: 0.16)
+    init(timerColor: TimerColor) {
+        self.init(
+            red: Double(timerColor.red) / 255,
+            green: Double(timerColor.green) / 255,
+            blue: Double(timerColor.blue) / 255
+        )
+    }
+
     static let sneakyBlack = Color(red: 0.17, green: 0.17, blue: 0.17)
     static let sneakyCapsule = Color(red: 0.94, green: 0.94, blue: 0.94)
 }
 
 #Preview {
-    CircularTimerView(progress: 0.85)
+    CircularTimerView(progress: 0.85, remainingColor: Color(timerColor: .defaultRed))
         .frame(width: 360, height: 360)
         .padding()
 }
