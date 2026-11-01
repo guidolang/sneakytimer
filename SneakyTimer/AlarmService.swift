@@ -7,7 +7,12 @@ protocol AlarmService {
 
 struct SystemAlarmService: AlarmService {
     func timerDidComplete() {
-        AudioServicesPlaySystemSound(1005)
-        AudioServicesPlaySystemSound(kSystemSoundID_Vibrate)
+        for round in 0..<2 {
+            let delay = TimeInterval(round)
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                AudioServicesPlaySystemSound(1005)
+                AudioServicesPlaySystemSound(kSystemSoundID_Vibrate)
+            }
+        }
     }
 }

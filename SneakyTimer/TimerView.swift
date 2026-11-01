@@ -69,31 +69,33 @@ struct TimerView: View {
     }
 
     private var timerContent: some View {
-        ZStack {
-            Color(.systemBackground)
-                .ignoresSafeArea()
+        GeometryReader { geometry in
+            let timerDiameter = timerDiameter(in: geometry.size)
 
-            VStack(spacing: 26) {
-                topBar
+            ZStack {
+                Color(.systemBackground)
+                    .ignoresSafeArea()
 
-                Spacer(minLength: 8)
+                VStack(spacing: 26) {
+                    topBar
 
-                CircularTimerView(
-                    progress: viewModel.snapshot.visualProgress,
-                    remainingColor: Color(timerColor: viewModel.timerColor)
-                )
-                    .frame(maxWidth: 288)
-                    .aspectRatio(1, contentMode: .fit)
-                    .padding(.horizontal, 24)
+                    Spacer(minLength: 8)
 
-                countdownCapsule
+                    CircularTimerView(
+                        progress: viewModel.snapshot.visualProgress,
+                        remainingColor: Color(timerColor: viewModel.timerColor)
+                    )
+                        .frame(width: timerDiameter, height: timerDiameter)
 
-                Spacer(minLength: 12)
+                    countdownCapsule
 
-                controls
-                    .padding(.bottom, 22)
+                    Spacer(minLength: 12)
+
+                    controls
+                        .padding(.bottom, 22)
+                }
+                .padding(.horizontal, 22)
             }
-            .padding(.horizontal, 22)
         }
         .onAppear {
             UIApplication.shared.isIdleTimerDisabled = true
@@ -135,6 +137,14 @@ struct TimerView: View {
 
     private var topBarForegroundColor: Color {
         colorScheme == .dark ? .white : .sneakyBlack
+    }
+
+    private func timerDiameter(in size: CGSize) -> CGFloat {
+        guard UIDevice.current.userInterfaceIdiom == .pad else {
+            return 288
+        }
+
+        return min(max(min(size.width, size.height) * 0.48, 320), 440)
     }
 
     private var countdownCapsule: some View {
@@ -228,7 +238,6 @@ struct TimerView: View {
         activeDurationEditor = nil
     }
 }
-
 #Preview {
     TimerView()
 }
@@ -270,8 +279,12 @@ private struct SettingsView: View {
     let onSelectPreset: (Int) -> Void
 
     var body: some View {
-        Form {
-            Section {
+        ZStack {
+            Color(.systemGroupedBackground)
+                .ignoresSafeArea()
+
+            Form {
+                Section {
                 Button(action: onShowDisplayedDurationEditor) {
                     SettingsValueRow(
                         title: "Duration",
@@ -304,38 +317,40 @@ private struct SettingsView: View {
 
                 Toggle("Hide adjusted time", isOn: $viewModel.hidesAdjustedTime)
 
-                Button {
-                    isShowingColorPicker = true
-                } label: {
-                    BackgroundColorRow(color: viewModel.timerColor)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Background color")
-                .accessibilityValue(viewModel.timerColor.hexString)
-                .popover(isPresented: $isShowingColorPicker) {
-                    VStack(spacing: 12) {
-                        SpectrumColorPicker(
-                            initialColor: viewModel.timerColor,
-                            onSelect: viewModel.saveTimerColor
-                        )
-                        .frame(height: 220)
-
-                        Button("Reset") {
-                            viewModel.saveTimerColor(.defaultRed)
-                            isShowingColorPicker = false
-                        }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(.tint)
-                        .accessibilityLabel("Reset background color")
+                LabeledContent("Background color") {
+                    Button {
+                        isShowingColorPicker = true
+                    } label: {
+                        BackgroundColorSelector(color: viewModel.timerColor)
                     }
-                    .frame(width: 280)
-                    .padding(12)
-                    .presentationCompactAdaptation(.popover)
-                }
-            }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Background color")
+                    .accessibilityValue(viewModel.timerColor.hexString)
+                    .popover(isPresented: $isShowingColorPicker) {
+                        VStack(spacing: 12) {
+                            SpectrumColorPicker(
+                                initialColor: viewModel.timerColor,
+                                onSelect: viewModel.saveTimerColor
+                            )
+                            .frame(height: 220)
 
-            Section("Preset timers") {
-                ForEach(viewModel.presetDurations.indices, id: \.self) { index in
+                            Button("Reset") {
+                                viewModel.saveTimerColor(.defaultRed)
+                                isShowingColorPicker = false
+                            }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(.tint)
+                            .accessibilityLabel("Reset background color")
+                        }
+                        .frame(width: 280)
+                        .padding(12)
+                        .presentationCompactAdaptation(.popover)
+                    }
+                }
+                }
+
+                Section("Preset timers") {
+                    ForEach(viewModel.presetDurations.indices, id: \.self) { index in
                     PresetTimerRow(
                         durationText: viewModel.presetDisplayText(at: index),
                         onSelect: { onSelectPreset(index) },
@@ -348,24 +363,25 @@ private struct SettingsView: View {
                             isShowingPresetDeletionAlert = true
                         } : nil
                     )
-                }
+                    }
 
-                if viewModel.canAddPresetTimer {
-                    HStack {
-                        Spacer()
+                    if viewModel.canAddPresetTimer {
+                        HStack {
+                            Spacer()
 
-                        Button(action: onShowNewPresetEditor) {
-                            Image(systemName: "plus")
-                                .font(.system(size: 18, weight: .semibold))
-                                .frame(width: 32, height: 32)
-                                .contentShape(Rectangle())
+                            Button(action: onShowNewPresetEditor) {
+                                Image(systemName: "plus")
+                                    .font(.system(size: 18, weight: .semibold))
+                                    .frame(width: 32, height: 32)
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.borderless)
+                            .accessibilityLabel("Add preset timer")
                         }
-                        .buttonStyle(.borderless)
-                        .accessibilityLabel("Add preset timer")
                     }
                 }
             }
-
+            .frame(maxWidth: 600)
         }
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
@@ -388,22 +404,17 @@ private struct SettingsView: View {
     }
 }
 
-private struct BackgroundColorRow: View {
+private struct BackgroundColorSelector: View {
     let color: TimerColor
 
     var body: some View {
-        HStack {
-            Text("Background color")
-                .foregroundStyle(.primary)
-
-            Spacer()
-
+        HStack(spacing: 8) {
             Circle()
                 .fill(Color(timerColor: color))
                 .frame(width: 24, height: 24)
                 .overlay(Circle().stroke(.secondary.opacity(0.35), lineWidth: 1))
 
-            Image(systemName: "chevron.right")
+            Image(systemName: "chevron.down")
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(.tertiary)
         }
